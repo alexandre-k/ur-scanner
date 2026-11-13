@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-estates
+data:
+  estates.yaml: |
+    {{- .Values.estates | toYaml | nindent 6 }}

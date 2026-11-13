@@ -1,0 +1,100 @@
+replicaCount: 1
+
+image:
+  repository: your-user/ur-scanner
+  pullPolicy: Always
+  tag: "0.1.2"
+
+estates:
+  - name: "行田"
+    shisya: "30"
+    danchi: "268"
+    shikibetu: "0"
+  - name: "高根台"
+    shisya: "30"
+    danchi: "083"
+    shikibetu: "0"
+  # - name: "高根台"
+  #   shisya: "30"
+  #   danchi: "083"
+  #   shikibetu: "0"
+  # - name: "アートヒル高根台"
+  #   shisya: "30"
+  #   danchi: "595"
+  #   shikibetu: "1"
+  # - name: "芝山"
+  #   shisya: "30"
+  #   danchi: "283"
+  #   shikibetu: "0"
+  # - name: "習志野台"
+  #   shisya: "30"
+  #   danchi: "151"
+  #   shikibetu: "0"
+  # - name: "若松二丁目"
+  #   shisya: "30"
+  #   danchi: "184"
+  #   shikibetu: "0"
+  # - name: "金杉台"
+  #   shisya: "30"
+  #   danchi: "211"
+  #   shikibetu: "0"
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# OpenTelemetry Collector Subchart Configuration
+opentelemetry-collector:
+  enabled: true
+  mode: deployment
+  replicaCount: 1
+  image:
+    repository: "otel/opentelemetry-collector-contrib"
+  
+  # Pass Grafana credentials from the secret created by this chart
+  extraEnvs:
+    - name: GRAFANA_OTLP_ENDPOINT
+      valueFrom:
+        secretKeyRef:
+          name: rust-app-grafana-secret
+          key: endpoint
+    - name: GRAFANA_AUTH_HEADER
+      valueFrom:
+        secretKeyRef:
+          name: rust-app-grafana-secret
+          key: authHeader
+
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+
+    exporters:
+      otlphttp/grafana:
+        endpoint: "${env:GRAFANA_OTLP_ENDPOINT}"
+        headers:
+          Authorization: "${env:GRAFANA_AUTH_HEADER}"
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlphttp/grafana]
+        metrics:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlphttp/grafana]
+        logs:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlphttp/grafana]
